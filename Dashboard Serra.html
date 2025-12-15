@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Borgo Faiti Greenhouse</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f0fdf4; }
+        .toggle-checkbox:checked { right: 0; border-color: #10b981; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #10b981; }
+    </style>
+</head>
+<body class="p-4 min-h-screen flex flex-col items-center pb-20">
+
+    <div class="w-full max-w-md bg-white p-6 rounded-2xl shadow-xl border border-green-100">
+        
+        <!-- HEADER -->
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">Serra Hub 2.0</h1>
+                <p class="text-xs text-gray-500 uppercase tracking-widest">Borgo Faiti</p>
+            </div>
+            <div id="connectionStatus" class="flex items-center space-x-2 bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-bold">
+                <i data-lucide="wifi-off" class="w-4 h-4"></i><span>Offline</span>
+            </div>
+        </div>
+
+        <button id="connectBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center mb-6 shadow-lg">
+            <i data-lucide="bluetooth" class="w-5 h-5 mr-2"></i> Connetti
+        </button>
+
+        <!-- AUTOMATION TOGGLE -->
+        <div class="flex items-center justify-between bg-gray-800 text-white p-4 rounded-xl mb-4 shadow-md">
+            <div class="flex items-center space-x-3">
+                <i data-lucide="cpu" class="w-5 h-5 text-green-400"></i>
+                <span class="font-bold text-sm">Automatico</span>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggleAuto" class="sr-only peer" disabled>
+                <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+            </label>
+        </div>
+
+        <!-- CONFIGURAZIONE TENDE (IMPORTANTE) -->
+        <div class="flex items-center justify-between bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl mb-6">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="blinds" class="w-5 h-5"></i>
+                <div>
+                    <span class="block font-bold text-sm">Stato Tende</span>
+                    <span class="text-xs opacity-70">Blocca Clima se Chiuse</span>
+                </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggleCurtain" class="sr-only peer" disabled>
+                <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                <span class="ml-2 text-xs font-bold" id="curtainText">CHIUSE</span>
+            </label>
+        </div>
+
+        <!-- SENSORI -->
+        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Ambienti</h3>
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <!-- Serra -->
+            <div class="bg-green-50 p-3 rounded-xl border border-green-100 relative">
+                <span class="text-xs text-green-600 font-bold uppercase">Serra</span>
+                <div class="flex items-end mt-1">
+                    <span class="text-2xl font-bold text-gray-800" id="tempSerra">--</span><span class="text-sm text-gray-500">°C</span>
+                </div>
+                <div class="text-xs text-gray-400 mt-1 flex items-center"><i data-lucide="droplet" class="w-3 h-3 mr-1"></i> <span id="humSerra">--</span>%</div>
+            </div>
+            
+            <!-- Ufficio -->
+            <div class="bg-blue-50 p-3 rounded-xl border border-blue-100 relative">
+                <span class="text-xs text-blue-600 font-bold uppercase">Ufficio</span>
+                <div class="flex items-end mt-1">
+                    <span class="text-2xl font-bold text-gray-800" id="tempOffice">--</span><span class="text-sm text-gray-500">°C</span>
+                </div>
+                <div class="text-xs text-gray-400 mt-1">Zona Lavoro</div>
+            </div>
+        </div>
+
+        <!-- ATTUATORI -->
+        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Controlli</h3>
+        <div class="space-y-3">
+            <!-- Heater -->
+            <div class="flex justify-between items-center p-3 bg-white border rounded-xl">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-red-100 p-2 rounded-lg text-red-500"><i data-lucide="flame" class="w-4 h-4"></i></div>
+                    <span class="font-semibold text-gray-700 text-sm">Riscaldamento</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggleHeater" class="sr-only peer" disabled>
+                    <div class="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-red-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                </label>
+            </div>
+
+            <!-- Fan -->
+            <div class="flex justify-between items-center p-3 bg-white border rounded-xl">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-gray-100 p-2 rounded-lg text-gray-600"><i data-lucide="fan" class="w-4 h-4"></i></div>
+                    <span class="font-semibold text-gray-700 text-sm">Ventilazione</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggleFan" class="sr-only peer" disabled>
+                    <div class="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-gray-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                </label>
+            </div>
+            
+            <!-- Water -->
+            <div class="flex justify-between items-center p-3 bg-white border rounded-xl">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-blue-100 p-2 rounded-lg text-blue-500"><i data-lucide="cloud-rain" class="w-4 h-4"></i></div>
+                    <span class="font-semibold text-gray-700 text-sm">Irrigazione</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggleWater" class="sr-only peer" disabled>
+                    <div class="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-blue-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                </label>
+            </div>
+            
+            <!-- Extractor -->
+            <div class="flex justify-between items-center p-3 bg-white border rounded-xl">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-blue-100 p-2 rounded-lg text-blue-500"><i data-lucide="cloud-rain" class="w-4 h-4"></i></div>
+                    <span class="font-semibold text-gray-700 text-sm">Estrattore</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggleExtractor" class="sr-only peer" disabled>
+                    <div class="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-blue-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                </label>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        lucide.createIcons();
+        const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+        // UUIDs
+        const UUIDS = {
+            tempSerra: "beb5483e-36e1-4688-b7f5-ea07361b26a8",
+            tempOffice: "beb5483e-36e1-4688-b7f5-ea07361b26ab",
+            humSerra: "beb5483e-36e1-4688-b7f5-ea07361b26a9",
+            auto: "826b526d-8956-4299-8051-168d18406150",
+            curtain: "826b526d-8956-4299-8051-168d18406152",
+            fan: "826b526d-8956-4299-8051-168d1840614e",
+            water: "826b526d-8956-4299-8051-168d1840614f",
+            heater: "826b526d-8956-4299-8051-168d18406151",
+            extractor: "beb5483e-36e1-4688-b7f5-ea07361b26c2"
+        };
+
+        const els = {
+            connect: document.getElementById('connectBtn'),
+            status: document.getElementById('connectionStatus'),
+            tempSerra: document.getElementById('tempSerra'),
+            humSerra: document.getElementById('humSerra'),
+            tempOffice: document.getElementById('tempOffice'),
+            tAuto: document.getElementById('toggleAuto'),
+            tCurtain: document.getElementById('toggleCurtain'),
+            curtainText: document.getElementById('curtainText'),
+            tFan: document.getElementById('toggleFan'),
+            tWater: document.getElementById('toggleWater'),
+            tHeater: document.getElementById('toggleHeater'),
+            tExtractor: document.getElementById('toggleExtractor')
+        };
+
+        let device, server, service;
+        let chars = {};
+
+        els.connect.addEventListener('click', async () => {
+            try {
+                device = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'Serra_Hub_Faiti' }],
+                    optionalServices: [SERVICE_UUID]
+                });
+                server = await device.gatt.connect();
+                service = await server.getPrimaryService(SERVICE_UUID);
+                
+                // Setup Read/Notify Sensori
+                await setupRead(UUIDS.tempSerra, (v) => els.tempSerra.innerText = v);
+                await setupRead(UUIDS.humSerra, (v) => els.humSerra.innerText = v);
+                await setupRead(UUIDS.tempOffice, (v) => els.tempOffice.innerText = v);
+
+                // Setup Controlli
+                chars.auto = await setupControl(UUIDS.auto, els.tAuto);
+                chars.curtain = await setupControl(UUIDS.curtain, els.tCurtain, updateCurtainUI);
+                chars.fan = await setupControl(UUIDS.fan, els.tFan);
+                chars.water = await setupControl(UUIDS.water, els.tWater);
+                chars.heater = await setupControl(UUIDS.heater, els.tHeater);
+                chars.extractor = await setupControl(UUIDS.extractor, els.tExtractor);
+
+                els.status.innerHTML = '<span class="text-green-600">Connesso</span>';
+                els.connect.style.display = 'none';
+            } catch (e) { alert(e); }
+        });
+
+        async function setupRead(uuid, cb) {
+            const c = await service.getCharacteristic(uuid);
+            c.startNotifications();
+            c.addEventListener('characteristicvaluechanged', e => cb(new TextDecoder().decode(e.target.value)));
+            cb(new TextDecoder().decode(await c.readValue()));
+        }
+
+        async function setupControl(uuid, el, extraCb) {
+            const c = await service.getCharacteristic(uuid);
+            c.startNotifications();
+            c.addEventListener('characteristicvaluechanged', e => {
+                const val = e.target.value.getUint8(0) === 1;
+                el.checked = val;
+                if(extraCb) extraCb(val);
+            });
+            const val = (await c.readValue()).getUint8(0) === 1;
+            el.checked = val;
+            el.disabled = false;
+            if(extraCb) extraCb(val);
+            
+            el.addEventListener('change', async () => {
+                await c.writeValue(Uint8Array.of(el.checked ? 1 : 0));
+                if(extraCb) extraCb(el.checked);
+            });
+            return c;
+        }
+
+        function updateCurtainUI(isOpen) {
+            els.curtainText.innerText = isOpen ? "APERTE" : "CHIUSE";
+            els.curtainText.className = isOpen ? "ml-2 text-xs font-bold text-green-600" : "ml-2 text-xs font-bold text-red-500";
+        }
+    </script>
+</body>
+</html>
