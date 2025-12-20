@@ -9,9 +9,18 @@
 #define SERVICE_UUID            "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 // Sensori
 #define CHAR_TEMP_SERRA_UUID    "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define CHAR_TEMP_OFFICE_UUID   "beb5483e-36e1-4688-b7f5-ea07361b27a8" // Stato
+#define CHAR_TEMP2_SERRA_UUID   "beb5483e-36e1-4688-b7f5-ea07361b28a8"
+#define CHAR_TEMP3_SERRA_UUID   "beb5483e-36e1-4688-b7f5-ea07361b29a8"
 #define CHAR_HUM_SERRA_UUID     "beb5483e-36e1-4688-b7f5-ea07361b26a9"
+#define CHAR_HUM1_SERRA_UUID    "beb5483e-36e1-4688-b7f5-ea07361b27a9"
+#define CHAR_HUM2_SERRA_UUID    "beb5483e-36e1-4688-b7f5-ea07361b28a9"
+#define CHAR_HUM3_SERRA_UUID    "beb5483e-36e1-4688-b7f5-ea07361b29a9"
 #define CHAR_SOIL_UUID          "beb5483e-36e1-4688-b7f5-ea07361b26aa"
-#define CHAR_TEMP_OFFICE_UUID   "beb5483e-36e1-4688-b7f5-ea07361b26ab" // Stato
+#define CHAR_SOIL1_UUID         "beb5483e-36e1-4688-b7f5-ea07361b27aa"
+#define CHAR_SOIL2_UUID         "beb5483e-36e1-4688-b7f5-ea07361b28aa"
+#define CHAR_RTC_HOUR_UUID      "beb5483e-36e1-4688-b7f5-ea07361b26ac" // Stato
+#define CHAR_RTC_MINUTE_UUID    "beb5483e-36e1-4688-b7f5-ea07361b27ac" // Stato
 
 // Attuatori/Comandi
 #define CHAR_FAN_UUID           "826b526d-8956-4299-8051-168d1840614e"
@@ -38,15 +47,25 @@ private:
     
     // Characteristics
     NimBLECharacteristic* _tempSerraChar;
+    NimBLECharacteristic* _tempOfficeChar;
+    NimBLECharacteristic* _temp2SerraChar;
+    NimBLECharacteristic* _temp3SerraChar;
     NimBLECharacteristic* _humSerraChar;
+    NimBLECharacteristic* _hum1SerraChar;
+    NimBLECharacteristic* _hum2SerraChar;
+    NimBLECharacteristic* _hum3SerraChar;
     NimBLECharacteristic* _soilChar;
-    NimBLECharacteristic* _tempOfficeChar; // NUOVO
+    NimBLECharacteristic* _soil1Char;
+    NimBLECharacteristic* _soil2Char; 
+
+    NimBLECharacteristic* _rtcHourChar; 
+    NimBLECharacteristic* _rtcMinuteChar; 
     
     NimBLECharacteristic* _fanChar;
     NimBLECharacteristic* _waterChar;
-    NimBLECharacteristic* _heaterChar;     // NUOVO
+    NimBLECharacteristic* _heaterChar;     
     NimBLECharacteristic* _extractorChar;
-    NimBLECharacteristic* _curtainChar;    // NUOVO
+    NimBLECharacteristic* _curtainChar;    
     NimBLECharacteristic* _autoChar;
     NimBLECharacteristic* _callModeChar;
 

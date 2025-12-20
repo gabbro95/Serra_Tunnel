@@ -1,9 +1,4 @@
 #include "SensorReader.h"
-#include <Wire.h>
-#include <RTClib.h> // Libreria necessaria per DS3231/RTC
-
-// Istanza RTC
-RTC_DS3231 rtc;
 
 SensorReader::SensorReader(SensorReadings_t* sensors, ActuatorStates_t* actuators)
     : _sensorReadings(sensors), _actuatorStates(actuators) {}
@@ -21,43 +16,43 @@ void SensorReader::initSensors() {
     
     // --- 1. Init RTC (Canale 3) ---
     tcaSelectChannel(RTC_CHANNEL);
-    if (!rtc.begin()) {
+    if (!_rtc.begin()) {
         Serial.println("ERRORE CRITICO: RTC non trovato.");
-        while (1);    } 
+        while (1);    
+    } 
 
-    // --- CONNESSIONE WIFI ---
-    Serial.print("Connessione al WiFi");
-    WiFi.begin(ssid, password);
+    // --- CONTROLLO BATTERIA ---
+    // Dopo aver rimosso R2, questa lettura sarà reale (con una batteria non ricaricabile)
+    float voltaggio = (analogRead(PIN_BAT) * 3.3) / 4095.0;
+    // Se il voltaggio è < 2.5V, la batteria è quasi scarica
+    Serial.printf("Stato Batteria: %.2fV\n", voltaggio);
 
-    // Tentiamo la connessione per un massimo di 10 secondi (per non bloccare tutto se manca internet)
-    int tentativi = 0;
-    while (WiFi.status() != WL_CONNECTED && tentativi < 20) {
-        delay(500);
-        Serial.print(".");
-        tentativi++;
-    }
-
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\nWiFi Connesso!");
+    // --- CONTROLLO AVVIO ---
+    if (!_rtc.isrunning()) {
+        Serial.println("[!] Orario non valido o RTC fermo. Provo il WiFi...");
         
-        // --- SINCRONIZZAZIONE NTP ---
-        // Configura l'orario interno dell'ESP32
-        configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+        WiFi.begin(ssid, password);
+        int tentativi = 0;
+        while (WiFi.status() != WL_CONNECTED && tentativi < 20) {
+            delay(500); Serial.print("."); tentativi++;
+        }
         
-        // Aggiorna l'RTC esterno con l'ora appena presa
-        aggiornaRTCconWiFi();
-        
-        // Disconnetti WiFi
-        WiFi.disconnect(true);
-        WiFi.mode(WIFI_OFF);
+        if (WiFi.status() == WL_CONNECTED) {
+            aggiornaRTCconWiFi();
+            WiFi.disconnect(true);
+            WiFi.mode(WIFI_OFF);
+        } else {
+            Serial.println("\n[!] WiFi fallito. L'ora potrebbe essere errata!");
+            // Opzione di emergenza: imposta ora compilazione
+            _rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+        }
     } else {
-        Serial.println("\nImpossibile connettersi al WiFi. L'RTC userà l'orario che ha in memoria.");
+        Serial.println("[OK] Orario recuperato correttamente dalla batteria.");
     }
 
     // Verifica finale
-    DateTime now = rtc.now();
-    Serial.printf("Orario attuale RTC: %02d:%02d:%02d - %02d/%02d/%04d\n", 
-        now.hour(), now.minute(), now.second(), now.day(), now.month(), now.year());
+    DateTime now = _rtc.now();
+    Serial.printf("Ora attuale: %02d:%02d:%02d\n", now.hour(), now.minute(), now.second());
     
     // --- 2. Init BME280 (Canali 0, 1, 2) ---
     // Inizializzazione BME Ufficio (Canale 0)
@@ -74,9 +69,15 @@ void SensorReader::initSensors() {
     tcaSelectChannel(BME_CHANNEL_OFFICE);
 }
 
-// Funzione calcolo media
-float SensorReader::calculateAverage(float val1, float val2, float val3) {
+// Funzione calcolo media BME
+float SensorReader::calculateAverageBME(float val1, float val2, float val3) {
     float average  = (val1 + val2 + val3) / 3.0F;
+    return average;
+}
+
+// Funzione calcolo media sonde
+float SensorReader::calculateAverageSoil(float val1, float val2) {
+    float average  = (val1 + val2) / 2.0F;
     return average;
 }
 
@@ -84,7 +85,7 @@ float SensorReader::calculateAverage(float val1, float val2, float val3) {
 void SensorReader::readRTC() {
     // Lettura RTC (Canale 3)
     tcaSelectChannel(RTC_CHANNEL);
-    DateTime now = rtc.now();
+    DateTime now = _rtc.now();
     _sensorReadings->currentDay = now.day();
     _sensorReadings->currentHour = now.hour();
     _sensorReadings->currentMinute = now.minute();
@@ -97,7 +98,6 @@ void SensorReader::readRTC() {
         _actuatorStates->isNewDay = false;
     }
     lastDay = _sensorReadings->currentDay;
-
 }
 
 // Funzione di lettura dei sensori temperatura
@@ -121,8 +121,8 @@ void SensorReader::readBME() {
     _sensorReadings->tempSerra2 = temp2; _sensorReadings->humSerra2 = hum2;
 
     // Calcolo Media Serra
-    _sensorReadings->tempSerraAverage = calculateAverage(tempOffice,temp1, temp2);
-    _sensorReadings->humSerraAverage = calculateAverage(humOffice,hum1, hum2);
+    _sensorReadings->tempSerraAverage = calculateAverageBME(tempOffice,temp1, temp2);
+    _sensorReadings->humSerraAverage = calculateAverageBME(humOffice,hum1, hum2);
 }
 
 // Funzione di lettura dei sensori del terreno
@@ -130,9 +130,8 @@ void SensorReader::readSoilSensor() {
     // Lettura Sensori Analogici (Terreno)
     _sensorReadings->soil1 = (float)analogRead(PIN_SOIL_1);
     _sensorReadings->soil2 = (float)analogRead(PIN_SOIL_2);
-    _sensorReadings->soil3 = (float)analogRead(PIN_SOIL_3);
     // Esempio semplice: 4095 = secco, 0 = bagnato (invertire e normalizzare)
-    _sensorReadings->soilAverage = calculateAverage(_sensorReadings->soil1, _sensorReadings->soil2, _sensorReadings->soil3);
+    _sensorReadings->soilAverage = calculateAverageSoil(_sensorReadings->soil1, _sensorReadings->soil2);
 }
 
 // Funzione di lettura della luce solare
@@ -141,13 +140,17 @@ void SensorReader::readLDR() {
     _sensorReadings->luxValue = (float)analogRead(PIN_LDR); // LDR
 }
 
-// Funzione di lettura dei sensori (Digitali)
+// Funzioni di lettura dei sensori (Digitali)
 void SensorReader::readDigitalSensors() {
-    // Rilevamento Presenza e Pioggia/Livello 
-    _sensorReadings->pirState = digitalRead(PIN_PIR_OFFICE);
+    // Rilevamento Pioggia/Livello 
     _sensorReadings->isRaining = digitalRead(PIN_RAIN_SENSOR);
     // Assumiamo che il sensore di livello tank sia LOW se vuoto
     _sensorReadings->tankLow = !digitalRead(PIN_RAIN_SENSOR); 
+}
+
+void SensorReader::readOfficeSensors() {
+    // Rilevamento Presenza
+    _sensorReadings->pirState = digitalRead(PIN_PIR_OFFICE);
 }
 
 // Funzione di lettura dei sensori
@@ -157,31 +160,15 @@ void SensorReader::readAllSensors() {
     readSoilSensor();
     readLDR();
     readDigitalSensors();
+    readOfficeSensors();
 }
 
-void aggiornaRTCconWiFi() {
+void SensorReader::aggiornaRTCconWiFi() {
+    configTime(3600, 3600, "pool.ntp.org"); // GMT+1 e Ora Legale per Italia
     struct tm timeinfo;
-    
-    // Tenta di ottenere l'ora locale dal sistema (che è stato sincronizzato via NTP)
-    if(!getLocalTime(&timeinfo)){
-        Serial.println("Errore: Impossibile ottenere l'ora dal server NTP.");
-        return;
+    if (getLocalTime(&timeinfo)) {
+        _rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, 
+                            timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
+        Serial.println("\n[OK] RTC sincronizzato con internet.");
     }
-
-    // Se siamo qui, abbiamo l'ora esatta!
-    Serial.println("Orario NTP ottenuto. Aggiorno il modulo RTC...");
-
-    // Scriviamo l'ora nell'RTC fisico
-    // timeinfo.tm_year conta dal 1900, quindi aggiungiamo 1900
-    // timeinfo.tm_mon va da 0 a 11, quindi aggiungiamo 1
-    rtc.adjust(DateTime(
-        timeinfo.tm_year + 1900, 
-        timeinfo.tm_mon + 1, 
-        timeinfo.tm_mday, 
-        timeinfo.tm_hour, 
-        timeinfo.tm_min, 
-        timeinfo.tm_sec
-    ));
-    
-    Serial.println("RTC aggiornato con successo via Wi-Fi!");
 }

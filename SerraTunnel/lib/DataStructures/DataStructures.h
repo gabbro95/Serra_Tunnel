@@ -26,7 +26,7 @@ typedef struct {
 
     // Terreno
     float soilAverage;      
-    float soil1; float soil2; float soil3;            
+    float soil1; float soil2;           
 
     // Ambiente
     float luxValue;  
@@ -59,7 +59,8 @@ typedef struct {
     // Relè stato
     bool isPump;              
     bool isGrowLight;         
-    bool isHeater;             
+    bool isHeater;     
+    bool isHeaterDesk;           
     bool isExtractor;           
 
     // PWM

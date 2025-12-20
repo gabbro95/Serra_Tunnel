@@ -12,27 +12,27 @@ public:
     LogicController(SensorReadings_t* sensors, ActuatorStates_t* actuators);
     void initLogic();
     void runLogicCycle();
-    void setControlHourTimer(unsigned long duration_ms_);
 
 private:
     SensorReadings_t* _sensorReadings;
     ActuatorStates_t* _actuatorStates;
 
-    Timer controlHourTime;
+    Timer* switchOffHeater;
+    Timer* switchOnHeater;
+    Timer* switchOffPump;
 
     // Funzioni di utilità per gli attuatori
     void setRelayState(int pin, bool state);
     void setPWMState(int channel, int speed);
+    void updatePwm();
     void applyActuatorStates();
 
     // Logiche Principali (le funzioni che hai menzionato)
     void checkLighting();         // Gestisce il fotoperiodo basato su LDR e RTC
     void checkIrrigation();       // Gestisce la pompa e l'umidità del terreno
-    void checkClimate();          // Gestisce riscaldamento e ventilazione
-    void checkClimate();          // Gestisce l'Estrattore
+    void checkClimate();          // Gestisce riscaldamento, l'Estrattore e ventilazione
     void checkCallMode();         // Logica per silenziare/accendere luci in Call Mode
     void checkCurtainsInterlock(); // Logica di sicurezza tende chiuse
-
 };
 
 #endif

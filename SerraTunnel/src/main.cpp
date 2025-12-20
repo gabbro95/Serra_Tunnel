@@ -36,8 +36,6 @@ void setup() {
 
     bleManager = new BLEManager(&sensorData, &actuatorData);
     bleManager->initBLE();
-    
-    logicController->setControlHourTimer(DELAYHOUR);
 
     lastSensorReadTime.set_auto_reset(true);
     lastBleNotifyTime.set_auto_reset(true);

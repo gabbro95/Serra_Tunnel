@@ -26,14 +26,15 @@ private:
     Adafruit_BME280 _bmeOffice;
     Adafruit_BME280 _bmeSerra1;
     Adafruit_BME280 _bmeSerra2;
-    RTC_DS3231 _rtc; 
+    RTC_DS1307 _rtc; 
 
     // --- CONFIGURAZIONE ORARIO (NTP per ITALIA) ---
     const char* ntpServer = "pool.ntp.org";
     const long  gmtOffset_sec = 3600;      // Italia è GMT+1
     const int   daylightOffset_sec = 3600; // Ora legale (+1 ora extra d'estate)
       
-    float calculateAverage(float val1, float val2, float val3);
+    float calculateAverageBME(float val1, float val2, float val3);
+    float calculateAverageSoil(float val1, float val2);
 
     void readOfficeSensors();
     void readRTC();

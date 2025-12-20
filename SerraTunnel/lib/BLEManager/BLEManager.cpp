@@ -56,10 +56,19 @@ void BLEManager::initBLE() {
     
     // Sensori
     _tempSerraChar = _pService->createCharacteristic(CHAR_TEMP_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+    _tempOfficeChar = _pService->createCharacteristic(CHAR_TEMP_OFFICE_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY); 
+    _temp2SerraChar = _pService->createCharacteristic(CHAR_TEMP2_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+    _temp3SerraChar = _pService->createCharacteristic(CHAR_TEMP3_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
     _humSerraChar = _pService->createCharacteristic(CHAR_HUM_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+    _hum1SerraChar = _pService->createCharacteristic(CHAR_HUM1_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+    _hum2SerraChar = _pService->createCharacteristic(CHAR_HUM2_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+    _hum3SerraChar = _pService->createCharacteristic(CHAR_HUM3_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
     _soilChar = _pService->createCharacteristic(CHAR_SOIL_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
-    _tempOfficeChar = _pService->createCharacteristic(CHAR_TEMP_OFFICE_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY); // Nuovo
     
+    //  Orologio
+    _rtcHourChar = _pService->createCharacteristic(CHAR_RTC_HOUR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY); 
+    _rtcMinuteChar = _pService->createCharacteristic(CHAR_RTC_MINUTE_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY); 
+
     // Attuatori
     _autoChar = _pService->createCharacteristic(CHAR_AUTO_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY | NIMBLE_PROPERTY::WRITE);
     _autoChar->setCallbacks(_controlCallback);
@@ -94,14 +103,44 @@ void BLEManager::notifySensors() {
     sprintf(buffer, "%.1f", _sensorReadings->tempSerraAverage);
     _tempSerraChar->setValue(buffer); _tempSerraChar->notify();
 
+    sprintf(buffer, "%.1f", _sensorReadings->tempOffice); 
+    _tempOfficeChar->setValue(buffer); _tempOfficeChar->notify();
+
+    sprintf(buffer, "%.1f", _sensorReadings->tempSerra1);
+    _temp2SerraChar->setValue(buffer); _temp2SerraChar->notify();
+
+    sprintf(buffer, "%.1f", _sensorReadings->tempSerra2);
+    _temp3SerraChar->setValue(buffer); _temp3SerraChar->notify();
+
     sprintf(buffer, "%.1f", _sensorReadings->humSerraAverage);
     _humSerraChar->setValue(buffer); _humSerraChar->notify();
 
-    sprintf(buffer, "%.1f", _sensorReadings->tempOffice); // Invio Temp Ufficio
-    _tempOfficeChar->setValue(buffer); _tempOfficeChar->notify();
+    sprintf(buffer, "%.1f", _sensorReadings->humOffice);
+    _hum1SerraChar->setValue(buffer); _hum1SerraChar->notify();
+
+    sprintf(buffer, "%.1f", _sensorReadings->humSerra1);
+    _hum1SerraChar->setValue(buffer); _hum1SerraChar->notify();
+
+    sprintf(buffer, "%.1f", _sensorReadings->humSerra2);
+    _hum2SerraChar->setValue(buffer); _hum2SerraChar->notify();
+
+
 
     sprintf(buffer, "%.1f", _sensorReadings->soilAverage);
     _soilChar->setValue(buffer); _soilChar->notify();
+
+    sprintf(buffer, "%.1f", _sensorReadings->soil1);
+    _soil1Char->setValue(buffer); _soil1Char->notify();
+
+    sprintf(buffer, "%.1f", _sensorReadings->soil2);
+    _soil2Char->setValue(buffer); _soil2Char->notify();
+
+
+    sprintf(buffer, "%i", _sensorReadings->currentHour);
+    _rtcHourChar->setValue(buffer); _rtcHourChar->notify();
+
+    sprintf(buffer, "%i", _sensorReadings->currentMinute);
+    _rtcMinuteChar->setValue(buffer); _rtcMinuteChar->notify();
 
     // Sincronizza Stati
     uint8_t val;
