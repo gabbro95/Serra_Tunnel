@@ -3,230 +3,298 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Borgo Faiti Greenhouse</title>
+    <title>Borgo Faiti Greenhouse 2.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f0fdf4; }
-        .toggle-checkbox:checked { right: 0; border-color: #10b981; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #10b981; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .stat-card { background: white; border-radius: 1.5rem; padding: 1.25rem; border: 1px solid #e2e8f0; }
+        .control-card { background: white; border-radius: 1.5rem; padding: 1rem; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
+        .disabled-actuator { opacity: 0.5; pointer-events: none; filter: grayscale(1); }
+        .rtc-group { background: #1e293b; color: white; border-radius: 1.25rem; padding: 0.75rem 1rem; }
+        .call-active-btn { background-color: #ef4444 !important; color: white !important; animation: pulse 1.5s infinite; border-color: #f87171 !important; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .nav-btn.active { background-color: #f1f5f9; color: #0f172a; font-weight: 800; border: 1px solid #e2e8f0; }
+        .view-section { display: none; }
+        .view-section.active { display: block; animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="p-4 min-h-screen flex flex-col items-center pb-20">
+<body class="p-4 max-w-md mx-auto pb-10">
 
-    <div class="w-full max-w-md bg-white p-6 rounded-2xl shadow-xl border border-green-100">
-        
-        <!-- HEADER -->
-        <div class="flex items-center justify-between mb-6">
+    <!-- HEADER -->
+    <header class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 mb-6">
+        <div class="flex items-center justify-between mb-4">
             <div>
-                <h1 class="text-2xl font-bold text-gray-800">Serra Hub 2.0</h1>
-                <p class="text-xs text-gray-500 uppercase tracking-widest">Borgo Faiti</p>
+                <h1 class="text-xl font-black tracking-tight text-slate-800">GreenOffice Hub</h1>
+                <p class="text-[10px] text-green-600 font-black uppercase tracking-widest">Borgo Faiti v2.0</p>
             </div>
-            <div id="connectionStatus" class="flex items-center space-x-2 bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-bold">
-                <i data-lucide="wifi-off" class="w-4 h-4"></i><span>Offline</span>
+            <div id="connectionStatus" class="flex items-center space-x-1.5 bg-red-100 text-red-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">
+                <i data-lucide="wifi-off" class="w-3.5 h-3.5"></i>
+                <span>Offline</span>
             </div>
         </div>
 
-        <button id="connectBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center mb-6 shadow-lg">
-            <i data-lucide="bluetooth" class="w-5 h-5 mr-2"></i> Connetti
-        </button>
-
-        <!-- AUTOMATION TOGGLE -->
-        <div class="flex items-center justify-between bg-gray-800 text-white p-4 rounded-xl mb-4 shadow-md">
+        <div class="rtc-group flex items-center justify-between shadow-inner">
             <div class="flex items-center space-x-3">
-                <i data-lucide="cpu" class="w-5 h-5 text-green-400"></i>
-                <span class="font-bold text-sm">Automatico</span>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="toggleAuto" class="sr-only peer" disabled>
-                <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-            </label>
-        </div>
-
-        <!-- CONFIGURAZIONE TENDE (IMPORTANTE) -->
-        <div class="flex items-center justify-between bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl mb-6">
-            <div class="flex items-center space-x-2">
-                <i data-lucide="blinds" class="w-5 h-5"></i>
+                <div class="bg-slate-700 p-2.5 rounded-xl text-blue-400">
+                    <i data-lucide="clock" class="w-5 h-5"></i>
+                </div>
                 <div>
-                    <span class="block font-bold text-sm">Stato Tende</span>
-                    <span class="text-xs opacity-70">Blocca Clima se Chiuse</span>
+                    <div id="rtcTime" class="text-xl font-black leading-none tracking-tight text-white">--:--</div>
+                    <div id="rtcDate" class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">--/--/----</div>
                 </div>
+            </div>
+            <div class="h-8 w-px bg-slate-700 mx-2"></div>
+            <div class="text-right">
+                <div class="text-[8px] font-black text-slate-500 uppercase mb-0.5">Batteria</div>
+                <div class="flex items-center justify-end space-x-1.5 text-emerald-400">
+                    <span id="batValue" class="text-[11px] font-black">--%</span>
+                    <i data-lucide="battery-medium" class="w-4 h-4"></i>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <button id="connectBtn" class="w-full bg-slate-900 text-white rounded-2xl py-4 font-bold shadow-lg flex items-center justify-center mb-6 active:scale-95 transition-transform">
+        <i data-lucide="bluetooth" class="w-5 h-5 mr-2"></i> Connetti Serra
+    </button>
+
+    <!-- NAVIGATION -->
+    <nav class="flex p-1 bg-white border border-slate-200 shadow-sm rounded-2xl mb-6">
+        <button onclick="showView('dash', this)" class="nav-btn active flex-1 py-2.5 text-xs font-bold rounded-xl text-slate-400 transition-all">DASHBOARD</button>
+        <button onclick="showView('sensors', this)" class="nav-btn flex-1 py-2.5 text-xs font-bold rounded-xl text-slate-400 transition-all">ZONE BME</button>
+        <button onclick="showView('controls', this)" class="nav-btn flex-1 py-2.5 text-xs font-bold rounded-xl text-slate-400 transition-all">CONTROLLI</button>
+    </nav>
+
+    <!-- VIEW: DASHBOARD -->
+    <main id="view-dash" class="view-section active space-y-4">
+        <!-- OFFICE BOX -->
+        <div class="bg-white border border-slate-200 p-4 rounded-[2rem] shadow-sm space-y-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div id="pirIconBg" class="p-2.5 bg-slate-100 text-slate-400 rounded-2xl transition-colors">
+                        <i data-lucide="user-check" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-black text-slate-400 uppercase block mb-0.5">Ufficio</span>
+                        <span id="pirStatus" class="text-sm font-bold text-slate-800 uppercase">In attesa...</span>
+                    </div>
+                </div>
+                <button id="btnCall" onclick="toggleCallManual()" class="flex items-center space-x-2 border-2 border-slate-100 px-4 py-2.5 rounded-2xl text-slate-400 font-black text-[11px] uppercase transition-all hover:bg-slate-50">
+                    <i data-lucide="phone-call" class="w-4 h-4"></i>
+                    <span>Call Mode</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- MEDIE CLIMA -->
+        <div class="stat-card border-b-4 border-b-emerald-500 shadow-sm">
+            <div class="flex justify-between items-start mb-4">
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Media Climatica</span>
+            </div>
+            <div class="flex justify-between items-center mb-4 pb-4 border-b border-slate-50">
+                <div>
+                    <div class="flex items-baseline">
+                        <span id="tempAvg" class="text-5xl font-black tracking-tighter">--.-</span>
+                        <span class="text-xl font-bold text-orange-500 ml-1">°C</span>
+                    </div>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase">Temperatura</p>
+                </div>
+                <div class="text-right space-y-1">
+                    <div class="text-[10px] font-black bg-blue-50 px-2 py-0.5 rounded-lg text-blue-600">MIN <span id="tempMin">--.-</span>°</div>
+                    <div class="text-[10px] font-black bg-orange-50 px-2 py-0.5 rounded-lg text-orange-600">MAX <span id="tempMax">--.-</span>°</div>
+                </div>
+            </div>
+            <div class="flex justify-between items-center">
+                <div>
+                    <div class="flex items-baseline">
+                        <span id="humAvg" class="text-4xl font-black tracking-tighter">--</span>
+                        <span class="text-xl font-bold text-blue-500 ml-1">%</span>
+                    </div>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase">Umidità Media</p>
+                </div>
+                <div class="text-right space-y-1">
+                    <div class="text-[10px] font-black bg-indigo-50 px-2 py-0.5 rounded-lg text-indigo-600">MIN <span id="humMin">--</span>%</div>
+                    <div class="text-[10px] font-black bg-cyan-50 px-2 py-0.5 rounded-lg text-cyan-600">MAX <span id="humMax">--</span>%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card border-b-4 border-b-yellow-400">
+            <div class="flex items-baseline space-x-2">
+                <span id="luxVal" class="text-5xl font-black text-slate-800 tracking-tighter">----</span>
+                <span class="text-sm font-black text-slate-300 uppercase">Lux</span>
+            </div>
+            <p class="text-[9px] font-bold text-slate-400 uppercase mt-1">Illuminazione Ambientale</p>
+        </div>
+        
+        <div id="callAlert" class="hidden bg-red-500 text-white p-4 rounded-2xl flex items-center justify-center space-x-2 animate-bounce">
+            <i data-lucide="phone-forwarded" class="w-5 h-5"></i>
+            <span class="text-xs font-black uppercase tracking-widest">Chiamata in Corso</span>
+        </div>
+    </main>
+
+    <!-- VIEW: SENSORS -->
+    <main id="view-sensors" class="view-section space-y-3">
+        <div class="bg-white p-4 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm mb-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 rounded-lg bg-blue-50 text-blue-500"><i data-lucide="waves" class="w-5 h-5"></i></div>
+                <span class="text-xs font-bold text-slate-700 uppercase">Serbatoio</span>
+            </div>
+            <span id="tankStatusLabel" class="text-[10px] font-black px-3 py-1 rounded-full bg-slate-100 text-slate-400 uppercase">In lettura...</span>
+        </div>
+
+        <div class="space-y-3">
+            <div class="stat-card border-l-4 border-l-emerald-500">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-[10px] font-black text-slate-800 uppercase">BME Nord (Ufficio)</span>
+                    <span id="status-nord" class="text-[8px] font-black px-2 py-0.5 rounded bg-slate-100 uppercase">---</span>
+                </div>
+                <div class="flex justify-between font-black"><span id="tempNord" class="text-xl">--.-°C</span><span id="humNord" class="text-xl text-blue-500">--%</span></div>
+            </div>
+            <div class="stat-card border-l-4 border-l-blue-400">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-[10px] font-black text-slate-800 uppercase">BME Centro</span>
+                    <span id="status-centro" class="text-[8px] font-black px-2 py-0.5 rounded bg-slate-100 uppercase">---</span>
+                </div>
+                <div class="flex justify-between font-black"><span id="tempCentro" class="text-xl">--.-°C</span><span id="humCentro" class="text-xl text-blue-500">--%</span></div>
+            </div>
+            <div class="stat-card border-l-4 border-l-orange-400">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-[10px] font-black text-slate-800 uppercase">BME Sud</span>
+                    <span id="status-sud" class="text-[8px] font-black px-2 py-0.5 rounded bg-slate-100 uppercase">---</span>
+                </div>
+                <div class="flex justify-between font-black"><span id="tempSud" class="text-xl">--.-°C</span><span id="humSud" class="text-xl text-blue-500">--%</span></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- VIEW: CONTROLS -->
+    <main id="view-controls" class="view-section space-y-3">
+        <div class="bg-slate-900 p-5 rounded-[2rem] text-white flex justify-between items-center mb-4">
+            <div>
+                <h3 class="text-sm font-black uppercase tracking-widest text-green-400">Auto Mode</h3>
+                <p id="autoStatusText" class="text-[9px] text-slate-500 font-bold uppercase">Logica AI Attiva</p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="toggleCurtain" class="sr-only peer" disabled>
-                <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-                <span class="ml-2 text-xs font-bold" id="curtainText">CHIUSE</span>
+                <input type="checkbox" id="toggleAuto" class="sr-only peer" checked onchange="handleAutoModeChange(this)">
+                <div class="w-14 h-7 bg-slate-700 rounded-full peer peer-checked:bg-green-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-full"></div>
             </label>
         </div>
-
-        <!-- SENSORI -->
-        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Ambienti</h3>
-        <div class="grid grid-cols-2 gap-3 mb-6">
-            <!-- Serra -->
-            <div class="bg-green-50 p-3 rounded-xl border border-green-100 relative">
-                <span class="text-xs text-green-600 font-bold uppercase">Serra</span>
-                <div class="flex items-end mt-1">
-                    <span class="text-2xl font-bold text-gray-800" id="tempSerra">--</span><span class="text-sm text-gray-500">°C</span>
-                </div>
-                <div class="text-xs text-gray-400 mt-1 flex items-center"><i data-lucide="droplet" class="w-3 h-3 mr-1"></i> <span id="humSerra">--</span>%</div>
+        
+        <div class="space-y-2">
+            <div class="control-card actuator-item" data-lock="true" id="card-pump">
+                <div class="flex items-center space-x-3"><div class="p-2 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="droplets" class="w-5 h-5"></i></div><span class="text-xs font-black uppercase">Pompa</span></div>
+                <input type="checkbox" id="sw-pump" class="w-6 h-6 accent-blue-600" onchange="sendBleCommand('pump', this.checked)">
             </div>
-            
-            <!-- Ufficio -->
-            <div class="bg-blue-50 p-3 rounded-xl border border-blue-100 relative">
-                <span class="text-xs text-blue-600 font-bold uppercase">Ufficio</span>
-                <div class="flex items-end mt-1">
-                    <span class="text-2xl font-bold text-gray-800" id="tempOffice">--</span><span class="text-sm text-gray-500">°C</span>
+            <div class="control-card actuator-item" data-lock="true" id="card-heater">
+                <div class="flex items-center space-x-3"><div class="p-2 bg-orange-50 text-orange-500 rounded-xl"><i data-lucide="flame" class="w-5 h-5"></i></div><span class="text-xs font-black uppercase">Riscaldo</span></div>
+                <input type="checkbox" id="sw-heater" class="w-6 h-6 accent-orange-600" onchange="sendBleCommand('heater', this.checked)">
+            </div>
+            <div class="control-card actuator-item" data-lock="true" id="card-extractor">
+                <div class="flex items-center space-x-3"><div class="p-2 bg-green-50 text-green-500 rounded-xl"><i data-lucide="wind" class="w-5 h-5"></i></div><span class="text-xs font-black uppercase">Estrattore</span></div>
+                <input type="checkbox" id="sw-extractor" class="w-6 h-6 accent-green-600" onchange="sendBleCommand('extractor', this.checked)">
+            </div>
+            <div class="control-card actuator-item" data-lock="true" id="card-grow">
+                <div class="flex items-center space-x-3"><div class="p-2 bg-indigo-50 text-indigo-500 rounded-xl"><i data-lucide="lightbulb" class="w-5 h-5"></i></div><span class="text-xs font-black uppercase">Grow Lights</span></div>
+                <input type="checkbox" id="sw-grow" class="w-6 h-6 accent-indigo-600" onchange="sendBleCommand('grow', this.checked)">
+            </div>
+            <!-- TENDE: data-lock="false" (Override Manuale) -->
+            <div class="control-card actuator-item" data-lock="false" id="card-curtain">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-yellow-50 text-yellow-500 rounded-xl"><i data-lucide="sun" class="w-5 h-5"></i></div>
+                    <div>
+                        <span class="text-xs font-black uppercase block">Tende Aperte</span>
+                        <span class="text-[8px] text-slate-400 font-bold uppercase italic">Sospende Clima Auto</span>
+                    </div>
                 </div>
-                <div class="text-xs text-gray-400 mt-1">Zona Lavoro</div>
+                <input type="checkbox" id="sw-curtain" class="w-6 h-6 accent-yellow-600" onchange="sendBleCommand('curtain', this.checked)">
             </div>
         </div>
-
-        <!-- ATTUATORI -->
-        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Controlli</h3>
-        <div class="space-y-3">
-            <!-- Heater -->
-            <div class="flex justify-between items-center p-3 bg-white border rounded-xl">
-                <div class="flex items-center space-x-3">
-                    <div class="bg-red-100 p-2 rounded-lg text-red-500"><i data-lucide="flame" class="w-4 h-4"></i></div>
-                    <span class="font-semibold text-gray-700 text-sm">Riscaldamento</span>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="toggleHeater" class="sr-only peer" disabled>
-                    <div class="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-red-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
-                </label>
-            </div>
-
-            <!-- Fan -->
-            <div class="flex justify-between items-center p-3 bg-white border rounded-xl">
-                <div class="flex items-center space-x-3">
-                    <div class="bg-gray-100 p-2 rounded-lg text-gray-600"><i data-lucide="fan" class="w-4 h-4"></i></div>
-                    <span class="font-semibold text-gray-700 text-sm">Ventilazione</span>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="toggleFan" class="sr-only peer" disabled>
-                    <div class="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-gray-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
-                </label>
-            </div>
-            
-            <!-- Water -->
-            <div class="flex justify-between items-center p-3 bg-white border rounded-xl">
-                <div class="flex items-center space-x-3">
-                    <div class="bg-blue-100 p-2 rounded-lg text-blue-500"><i data-lucide="cloud-rain" class="w-4 h-4"></i></div>
-                    <span class="font-semibold text-gray-700 text-sm">Irrigazione</span>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="toggleWater" class="sr-only peer" disabled>
-                    <div class="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-blue-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
-                </label>
-            </div>
-            
-            <!-- Extractor -->
-            <div class="flex justify-between items-center p-3 bg-white border rounded-xl">
-                <div class="flex items-center space-x-3">
-                    <div class="bg-blue-100 p-2 rounded-lg text-blue-500"><i data-lucide="cloud-rain" class="w-4 h-4"></i></div>
-                    <span class="font-semibold text-gray-700 text-sm">Estrattore</span>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="toggleExtractor" class="sr-only peer" disabled>
-                    <div class="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-blue-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
-                </label>
-            </div>
-        </div>
-
-    </div>
+    </main>
 
     <script>
         lucide.createIcons();
-        const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
-        // UUIDs
-        const UUIDS = {
-            tempSerra: "beb5483e-36e1-4688-b7f5-ea07361b26a8",
-            tempOffice: "beb5483e-36e1-4688-b7f5-ea07361b26ab",
-            humSerra: "beb5483e-36e1-4688-b7f5-ea07361b26a9",
-            auto: "826b526d-8956-4299-8051-168d18406150",
-            curtain: "826b526d-8956-4299-8051-168d18406152",
-            fan: "826b526d-8956-4299-8051-168d1840614e",
-            water: "826b526d-8956-4299-8051-168d1840614f",
-            heater: "826b526d-8956-4299-8051-168d18406151",
-            extractor: "beb5483e-36e1-4688-b7f5-ea07361b26c2"
-        };
+        let isCallActive = false;
 
-        const els = {
-            connect: document.getElementById('connectBtn'),
-            status: document.getElementById('connectionStatus'),
-            tempSerra: document.getElementById('tempSerra'),
-            humSerra: document.getElementById('humSerra'),
-            tempOffice: document.getElementById('tempOffice'),
-            tAuto: document.getElementById('toggleAuto'),
-            tCurtain: document.getElementById('toggleCurtain'),
-            curtainText: document.getElementById('curtainText'),
-            tFan: document.getElementById('toggleFan'),
-            tWater: document.getElementById('toggleWater'),
-            tHeater: document.getElementById('toggleHeater'),
-            tExtractor: document.getElementById('toggleExtractor')
-        };
-
-        let device, server, service;
-        let chars = {};
-
-        els.connect.addEventListener('click', async () => {
-            try {
-                device = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: 'Serra_Hub_Faiti' }],
-                    optionalServices: [SERVICE_UUID]
-                });
-                server = await device.gatt.connect();
-                service = await server.getPrimaryService(SERVICE_UUID);
-                
-                // Setup Read/Notify Sensori
-                await setupRead(UUIDS.tempSerra, (v) => els.tempSerra.innerText = v);
-                await setupRead(UUIDS.humSerra, (v) => els.humSerra.innerText = v);
-                await setupRead(UUIDS.tempOffice, (v) => els.tempOffice.innerText = v);
-
-                // Setup Controlli
-                chars.auto = await setupControl(UUIDS.auto, els.tAuto);
-                chars.curtain = await setupControl(UUIDS.curtain, els.tCurtain, updateCurtainUI);
-                chars.fan = await setupControl(UUIDS.fan, els.tFan);
-                chars.water = await setupControl(UUIDS.water, els.tWater);
-                chars.heater = await setupControl(UUIDS.heater, els.tHeater);
-                chars.extractor = await setupControl(UUIDS.extractor, els.tExtractor);
-
-                els.status.innerHTML = '<span class="text-green-600">Connesso</span>';
-                els.connect.style.display = 'none';
-            } catch (e) { alert(e); }
-        });
-
-        async function setupRead(uuid, cb) {
-            const c = await service.getCharacteristic(uuid);
-            c.startNotifications();
-            c.addEventListener('characteristicvaluechanged', e => cb(new TextDecoder().decode(e.target.value)));
-            cb(new TextDecoder().decode(await c.readValue()));
-        }
-
-        async function setupControl(uuid, el, extraCb) {
-            const c = await service.getCharacteristic(uuid);
-            c.startNotifications();
-            c.addEventListener('characteristicvaluechanged', e => {
-                const val = e.target.value.getUint8(0) === 1;
-                el.checked = val;
-                if(extraCb) extraCb(val);
-            });
-            const val = (await c.readValue()).getUint8(0) === 1;
-            el.checked = val;
-            el.disabled = false;
-            if(extraCb) extraCb(val);
+        function showView(viewId, btn) {
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            const target = document.getElementById('view-' + viewId);
+            if(target) target.classList.add('active');
             
-            el.addEventListener('change', async () => {
-                await c.writeValue(Uint8Array.of(el.checked ? 1 : 0));
-                if(extraCb) extraCb(el.checked);
-            });
-            return c;
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            if(btn) btn.classList.add('active');
         }
 
-        function updateCurtainUI(isOpen) {
-            els.curtainText.innerText = isOpen ? "APERTE" : "CHIUSE";
-            els.curtainText.className = isOpen ? "ml-2 text-xs font-bold text-green-600" : "ml-2 text-xs font-bold text-red-500";
+        // AGGIORNAMENTO FEEDBACK REALE DAL FIRMWARE
+        // Questa funzione viene chiamata quando riceviamo il byte degli stati dall'ESP32
+        function updateActuatorStatesFromFirmware(actuatorByte) {
+            // Supponiamo che il byte sia strutturato come definito nel firmware
+            // Bit 0: Pump, Bit 1: Heater, Bit 2: Extractor, Bit 3: Grow, Bit 4: Auto, Bit 5: Call, Bit 6: Curtain
+            
+            document.getElementById('sw-pump').checked = (actuatorByte & 0x01);
+            document.getElementById('sw-heater').checked = (actuatorByte & 0x02);
+            document.getElementById('sw-extractor').checked = (actuatorByte & 0x04);
+            document.getElementById('sw-grow').checked = (actuatorByte & 0x08);
+            
+            // Auto Mode
+            const autoChecked = (actuatorByte & 0x10);
+            const toggleAuto = document.getElementById('toggleAuto');
+            if(toggleAuto.checked !== !!autoChecked) {
+                toggleAuto.checked = !!autoChecked;
+                handleAutoModeChange(toggleAuto);
+            }
+
+            // Call Mode
+            const callChecked = (actuatorByte & 0x20);
+            if(isCallActive !== !!callChecked) {
+                isCallActive = !!callChecked;
+                updateCallUI();
+            }
+
+            // Curtain Manual Block
+            document.getElementById('sw-curtain').checked = (actuatorByte & 0x40);
+        }
+
+        function updateCallUI() {
+            const btn = document.getElementById('btnCall');
+            const alert = document.getElementById('callAlert');
+            if(isCallActive) {
+                btn.classList.add('call-active-btn');
+                alert.classList.remove('hidden');
+            } else {
+                btn.classList.remove('call-active-btn');
+                alert.classList.add('hidden');
+            }
+        }
+
+        function toggleCallManual() {
+            isCallActive = !isCallActive;
+            updateCallUI();
+            sendBleCommand('call', isCallActive);
+        }
+
+        function handleAutoModeChange(checkbox) {
+            const items = document.querySelectorAll('.actuator-item');
+            const statusTxt = document.getElementById('autoStatusText');
+            statusTxt.innerText = checkbox.checked ? "Logica AI Attiva" : "Controllo Manuale";
+            items.forEach(item => {
+                if (item.getAttribute('data-lock') === 'true') {
+                    checkbox.checked ? item.classList.add('disabled-actuator') : item.classList.remove('disabled-actuator');
+                }
+            });
+            // Inviamo il comando solo se l'azione è partita dall'utente (opzionale, dipende dalla logica BLE)
+            sendBleCommand('auto', checkbox.checked);
+        }
+
+        function sendBleCommand(cmd, value) {
+            console.log("BLE SEND -> CMD:", cmd, "VAL:", value);
+        }
+
+        window.onload = () => {
+            handleAutoModeChange(document.getElementById('toggleAuto'));
         }
     </script>
 </body>

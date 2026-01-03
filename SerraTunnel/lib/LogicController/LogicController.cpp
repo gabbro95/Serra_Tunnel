@@ -51,10 +51,8 @@ void LogicController::initLogic() {
 
     _actuatorStates->isExtractor = false;  // Inizializza OFF (Active LOW = true)
     _actuatorStates->isExtractorOn = _actuatorStates->isExtractor;  
-    //_actuatorStates->isHeater = false;
-    //_actuatorStates->isHeaterOn = _actuatorStates->isHeater;
     _actuatorStates->isHeaterDesk = false;
-    _actuatorStates->isHeaterOn = _actuatorStates->isHeater;
+    _actuatorStates->isHeaterDesk = _actuatorStates->isHeaterDesk;
     _actuatorStates->isPump = false;
     _actuatorStates->isPumpOn = _actuatorStates->isPump;
     _actuatorStates->isGrowLight = false;
@@ -93,13 +91,13 @@ void LogicController::checkLighting() {
     }
 
     // 3. Decisione Accensione/Spegnimento (Logica del Fotoperiodo)
-    _sensorReadings->isNaturalLightSufficient = _sensorReadings->luxValue > LUX_THRESHOLD_DAY;
+    _sensorReadings->isNaturalLightSufficient = (_sensorReadings->luxValue > LUX_THRESHOLD_DAY);
     
     if (_actuatorStates->isAutoModeActive) {
         // Accendi se:
         // - NON c'è sufficiente luce naturale ORA (giorno nuvoloso o tramonto)
         // - E non abbiamo ancora raggiunto l'obiettivo di 16 ore.
-        if (!_sensorReadings->isNaturalLightSufficient && _actuatorStates->hoursOfLightAccumulated < LIGHT_TARGET_HOURS) {
+        if (!_sensorReadings->isNaturalLightSufficient && _sensorReadings->currentHour > HOUR_START_LIGHTING && _actuatorStates->hoursOfLightAccumulated < LIGHT_TARGET_HOURS) {
             _actuatorStates->isGrowLightOn = true;
         } 
         // Spegni se:
@@ -125,12 +123,9 @@ void LogicController::checkIrrigation() {
         } else switchOffPump->stop();
     }
 
-    // Esempio semplificato: normalizza l'ADC (0-4095) in percentuale approssimativa (0-100)
-    float soilPercent = 100.0F - (_sensorReadings->soilAverage / 4095.0F) * 100.0F;
-
     // Condizioni per irrigare
-    bool needsWater = soilPercent < SOIL_MOISTURE_MIN_PERCENT;
-    bool safetyCheck = !_sensorReadings->tankLow;
+    bool needsWater = _sensorReadings->humSerraSud < HUMID_AVG_MIN_PERCENT;
+    bool safetyCheck = _sensorReadings->tankLow;
     // NON irriga se in Call Mode
     bool isQuiet = !_actuatorStates->isCallModeActive;
     
@@ -158,6 +153,11 @@ void LogicController::checkClimate() {
 
     float tGlobale = _sensorReadings->tempSerraAverage;
     float hGlobale = _sensorReadings->humSerraAverage; 
+
+    if (tGlobale < _sensorReadings->tempMin) _sensorReadings->tempMin = tGlobale;
+    if (tGlobale > _sensorReadings->tempMax) _sensorReadings->tempMax = tGlobale;
+    if (hGlobale < _sensorReadings->humMin) _sensorReadings->humMin = hGlobale;
+    if (hGlobale > _sensorReadings->humMax) _sensorReadings->humMax = hGlobale;
 
     // -------------------------------------------------------------------------
     // VENTILAZIONE INTERNA (Ricircolo - Priorità 3: Ottimizzazione Clima e Antimuffa)
@@ -215,7 +215,7 @@ void LogicController::checkClimate() {
 
     // Se l'estrattore è acceso, usciamo (ha priorità su riscaldamento e ricircolo)
     if (_actuatorStates->isExtractorOn) {
-        _actuatorStates->isHeaterOn = false; 
+        _actuatorStates->isExtractorOn = false; 
         switchOffHeater->stop();
         return;
     }
@@ -269,7 +269,7 @@ void LogicController::checkCurtainsInterlock() {
         // Se tende chiuse, blocca movimenti e riscaldamento (isolamento)
         _actuatorStates->fanMode = FAN_OFF;
         _actuatorStates->fanSpeedPWM = 0;
-        _actuatorStates->isHeaterOn = false;
+        _actuatorStates->isPumpOn = false;
         _actuatorStates->isHeaterDeskOn = false;
         _actuatorStates->isExtractorOn = false;
     }
@@ -300,16 +300,12 @@ void LogicController::applyActuatorStates() {
 }
 
 void LogicController::runLogicCycle() {
-    // 1. Logiche di Sicurezza Base
-    if (_sensorReadings->tankLow) _actuatorStates->isPumpOn = false;
-
     if (_actuatorStates->isAutoModeActive) {
         // 2. Sequenza Automatica
         checkLighting();   
         checkIrrigation();
         checkClimate();   
         checkCallMode(); 
-
     } 
     
     // 3. Blocco Finale Sicurezza Tende (Vince su tutto)

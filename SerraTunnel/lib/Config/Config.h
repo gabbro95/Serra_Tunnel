@@ -69,9 +69,10 @@
 // Luce (Fotoperiodo)
 #define LIGHT_TARGET_HOURS          16      // Ore di luce totali da garantire
 #define LUX_THRESHOLD_DAY           100.0   // Soglia per considerare "Giorno" (Luce Naturale)
+#define HOUR_START_LIGHTING         06
 
-// Soglia Umidità terreno
-#define SOIL_MOISTURE_MIN_PERCENT   40   
+// Soglia Umidità irrigazione
+#define HUMID_AVG_MIN_PERCENT   40   
 
 // Macro calcolo della durata del Timer
 #define SEC_TO_MS(s) ((s) * 1000UL)
@@ -80,6 +81,6 @@
 // Tempi Timer
 #define HEATER_DURATION_ON MIN_TO_MS(15)
 #define HEATER_DURATION_OFF MIN_TO_MS(5)
-#define WATER_PUMP_DURATION SEC_TO_MS(15) 
+#define WATER_PUMP_DURATION SEC_TO_MS(30) 
 
 #endif

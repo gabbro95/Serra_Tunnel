@@ -1,154 +1,112 @@
 #include "BLEManager.h"
 
-BLEManager::ActuatorCallbacks::ActuatorCallbacks(ActuatorStates_t* actuators)
-    : _actuatorStates(actuators) {}
-
-void BLEManager::ActuatorCallbacks::onWrite(NimBLECharacteristic* pCharacteristic) {
-    uint8_t value = pCharacteristic->getValue().length() == 0 ? 0 : *pCharacteristic->getValue().data();
-    bool newState = (value == 1);
-    std::string uuidObj = pCharacteristic->getUUID().toString();
-    const char* charUuid = uuidObj.c_str();
-
-    // 1. Auto Mode
-    if (strcmp(charUuid, CHAR_AUTO_UUID) == 0) {
-        _actuatorStates->isAutoModeActive = newState;
-    }
-    // 2. Impostazione Stato Tende (Funziona anche in Auto)
-    else if (strcmp(charUuid, CHAR_CALL_MODE_UUID) == 0) {
-        _actuatorStates->areCurtainsOpen = newState;
-        Serial.printf("BLE: Call su: %s\n", newState ? "Attiva" : "Disattiva");
-    }
-    // 2. Impostazione Stato Tende (Funziona anche in Auto)
-    else if (strcmp(charUuid, CHAR_CURTAIN_UUID) == 0) {
-        _actuatorStates->areCurtainsOpen = newState;
-        Serial.printf("BLE: Tende impostate su: %s\n", newState ? "APERTE" : "CHIUSE");
-    }
-    // 3. Controlli Manuali (Solo se Auto è OFF)
-    else {
-        if (_actuatorStates->isAutoModeActive) { return; } // Ignora
-
-        if (strcmp(charUuid, CHAR_FAN_UUID) == 0) {
-            _actuatorStates->fanMode = newState ? FAN_SILENT : FAN_OFF;
-            _actuatorStates->fanSpeedPWM = newState ? FAN_SPEED_SILENT_PWM : 0;
-        } else if (strcmp(charUuid, CHAR_WATER_UUID) == 0) {
-            _actuatorStates->isPumpOn = newState;
-        } else if (strcmp(charUuid, CHAR_HEATER_UUID) == 0) {
-            _actuatorStates->isHeaterOn = newState;
-        } else if (strcmp(charUuid, CHAR_EXTRACTOR_UUID) == 0) {
-            _actuatorStates->isExtractorOn = newState;
-        }
-    }
-    
-    pCharacteristic->setValue(&value, 1);
-    pCharacteristic->notify();
-}
-
 BLEManager::BLEManager(SensorReadings_t* sensors, ActuatorStates_t* actuators) 
-    : _sensorReadings(sensors), _actuatorStates(actuators) {
-    _controlCallback = new ActuatorCallbacks(actuators);
-}
+    : _sensorReadings(sensors), _actuatorStates(actuators) {}
 
 void BLEManager::initBLE() {
-    NimBLEDevice::init("Serra_Hub_Faiti"); 
+    NimBLEDevice::init("GreenOffice_Hub");
     _pServer = NimBLEDevice::createServer();
     _pServer->setCallbacks(new ServerCallbacks(this));
-    _pService = _pServer->createService(SERVICE_UUID);
-    
-    // Sensori
-    _tempSerraChar = _pService->createCharacteristic(CHAR_TEMP_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
-    _tempOfficeChar = _pService->createCharacteristic(CHAR_TEMP_OFFICE_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY); 
-    _temp2SerraChar = _pService->createCharacteristic(CHAR_TEMP2_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
-    _temp3SerraChar = _pService->createCharacteristic(CHAR_TEMP3_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
-    _humSerraChar = _pService->createCharacteristic(CHAR_HUM_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
-    _hum1SerraChar = _pService->createCharacteristic(CHAR_HUM1_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
-    _hum2SerraChar = _pService->createCharacteristic(CHAR_HUM2_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
-    _hum3SerraChar = _pService->createCharacteristic(CHAR_HUM3_SERRA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
-    _soilChar = _pService->createCharacteristic(CHAR_SOIL_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
-    
-    //  Orologio
-    _rtcHourChar = _pService->createCharacteristic(CHAR_RTC_HOUR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY); 
-    _rtcMinuteChar = _pService->createCharacteristic(CHAR_RTC_MINUTE_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY); 
 
-    // Attuatori
-    _autoChar = _pService->createCharacteristic(CHAR_AUTO_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY | NIMBLE_PROPERTY::WRITE);
-    _autoChar->setCallbacks(_controlCallback);
-    
-    _callModeChar = _pService->createCharacteristic(CHAR_CALL_MODE_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY | NIMBLE_PROPERTY::WRITE);
-    _callModeChar->setCallbacks(_controlCallback);
-    
-    _curtainChar = _pService->createCharacteristic(CHAR_CURTAIN_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY | NIMBLE_PROPERTY::WRITE);
-    _curtainChar->setCallbacks(_controlCallback);
+    NimBLEService* pService = _pServer->createService(SERVICE_UUID);
 
-    _fanChar = _pService->createCharacteristic(CHAR_FAN_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY | NIMBLE_PROPERTY::WRITE);
-    _fanChar->setCallbacks(_controlCallback);
-    
-    _waterChar = _pService->createCharacteristic(CHAR_WATER_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY | NIMBLE_PROPERTY::WRITE);
-    _waterChar->setCallbacks(_controlCallback);
+    auto createReadNotify = [&](const char* uuid) {
+        return pService->createCharacteristic(uuid, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+    };
 
-    _heaterChar = _pService->createCharacteristic(CHAR_HEATER_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY | NIMBLE_PROPERTY::WRITE);
-    _heaterChar->setCallbacks(_controlCallback);
+    _tempAvgChar = createReadNotify(CHAR_TEMP_AVG_UUID);
+    _humAvgChar  = createReadNotify(CHAR_HUM_AVG_UUID);
+    _tempMinChar = createReadNotify(CHAR_TEMP_MIN_UUID);
+    _tempMaxChar = createReadNotify(CHAR_TEMP_MAX_UUID);
+    _humMinChar  = createReadNotify(CHAR_HUM_MIN_UUID); // INIT
+    _humMaxChar  = createReadNotify(CHAR_HUM_MAX_UUID); // INIT
+    _luxChar     = createReadNotify(CHAR_LUX_UUID);
     
-    _extractorChar = _pService->createCharacteristic(CHAR_EXTRACTOR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY | NIMBLE_PROPERTY::WRITE);
-    _extractorChar->setCallbacks(_controlCallback);
-    
-    _pService->start();
+    _tempNordChar = createReadNotify(CHAR_TEMP_NORD_UUID);
+    _humNordChar  = createReadNotify(CHAR_HUM_NORD_UUID);
+    _tempCentroChar = createReadNotify(CHAR_TEMP_CENTRO_UUID);
+    _humCentroChar  = createReadNotify(CHAR_HUM_CENTRO_UUID);
+    _tempSudChar    = createReadNotify(CHAR_TEMP_SUD_UUID);
+    _humSudChar     = createReadNotify(CHAR_HUM_SUD_UUID);
+
+    _batteryChar      = createReadNotify(CHAR_BATTERY_UUID);
+    _rtcTimeChar      = createReadNotify(CHAR_RTC_TIME_UUID);
+    _rtcDateChar      = createReadNotify(CHAR_RTC_DATE_UUID);
+    _systemStatusChar = createReadNotify(CHAR_SYSTEM_STATUS_UUID);
+
+    auto actCallbacks = new ActuatorCallbacks(_actuatorStates, _sensorReadings);
+    auto setupControl = [&](NimBLECharacteristic* &c, const char* uuid) {
+        c = pService->createCharacteristic(uuid, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
+        c->setCallbacks(actCallbacks);
+    };
+
+    setupControl(_autoChar, CHAR_AUTO_UUID);
+    setupControl(_pumpChar, CHAR_PUMP_UUID);
+    setupControl(_heaterChar, CHAR_HEATER_UUID);
+    setupControl(_extractorChar, CHAR_EXTRACTOR_UUID);
+    setupControl(_curtainChar, CHAR_CURTAIN_UUID);
+    setupControl(_growLightsChar, CHAR_GROW_LIGHTS_UUID);
+
+    pService->start();
+    NimBLEDevice::getAdvertising()->addServiceUUID(SERVICE_UUID);
     NimBLEDevice::getAdvertising()->start();
 }
 
 void BLEManager::notifySensors() {
     if (!_deviceConnected) return;
-    char buffer[10];
 
-    // Invio Dati
-    sprintf(buffer, "%.1f", _sensorReadings->tempSerraAverage);
-    _tempSerraChar->setValue(buffer); _tempSerraChar->notify();
+    _tempAvgChar->setValue(_sensorReadings->tempSerraAverage); _tempAvgChar->notify();
+    _humAvgChar->setValue(_sensorReadings->humSerraAverage); _humAvgChar->notify();
+    _tempMinChar->setValue(_sensorReadings->tempMin); _tempMinChar->notify();
+    _tempMaxChar->setValue(_sensorReadings->tempMax); _tempMaxChar->notify();
+    _humMinChar->setValue(_sensorReadings->humMin); _humMinChar->notify(); // NOTIFY
+    _humMaxChar->setValue(_sensorReadings->humMax); _humMaxChar->notify(); // NOTIFY
+    _luxChar->setValue(_sensorReadings->luxValue); _luxChar->notify();
 
-    sprintf(buffer, "%.1f", _sensorReadings->tempOffice); 
-    _tempOfficeChar->setValue(buffer); _tempOfficeChar->notify();
+    _tempNordChar->setValue(_sensorReadings->tempOffice); _tempNordChar->notify();
+    _humNordChar->setValue(_sensorReadings->humOffice); _humNordChar->notify();
+    _tempCentroChar->setValue(_sensorReadings->tempSerraCentro); _tempCentroChar->notify();
+    _humCentroChar->setValue(_sensorReadings->humSerraCentro); _humCentroChar->notify();
+    _tempSudChar->setValue(_sensorReadings->tempSerraSud); _tempSudChar->notify();
+    _humSudChar->setValue(_sensorReadings->humSerraSud); _humSudChar->notify();
 
-    sprintf(buffer, "%.1f", _sensorReadings->tempSerra1);
-    _temp2SerraChar->setValue(buffer); _temp2SerraChar->notify();
+    _batteryChar->setValue((int32_t)_sensorReadings->batteryPercent); _batteryChar->notify();
 
-    sprintf(buffer, "%.1f", _sensorReadings->tempSerra2);
-    _temp3SerraChar->setValue(buffer); _temp3SerraChar->notify();
+    char buf[12];
+    snprintf(buf, sizeof(buf), "%02d:%02d", _sensorReadings->currentHour, _sensorReadings->currentMinute);
+    _rtcTimeChar->setValue(buf); _rtcTimeChar->notify();
 
-    sprintf(buffer, "%.1f", _sensorReadings->humSerraAverage);
-    _humSerraChar->setValue(buffer); _humSerraChar->notify();
+    snprintf(buf, sizeof(buf), "%02d/%02d/%04d", _sensorReadings->currentDay, _sensorReadings->currentMonth, _sensorReadings->currentYear);
+    _rtcDateChar->setValue(buf); _rtcDateChar->notify();
 
-    sprintf(buffer, "%.1f", _sensorReadings->humOffice);
-    _hum1SerraChar->setValue(buffer); _hum1SerraChar->notify();
+    uint8_t status = 0;
+    if (_sensorReadings->pirState)      status |= (1 << 0);
+    if (_actuatorStates->isCallModeActive)  status |= (1 << 1);
+    if (_sensorReadings->tankLow)      status |= (1 << 2);
+    if (_sensorReadings->bmeNordOk)    status |= (1 << 3);
+    if (_sensorReadings->bmeCentroOk)  status |= (1 << 4);
+    if (_sensorReadings->bmeSudOk)    status |= (1 << 5);
+    _systemStatusChar->setValue(&status, 1); _systemStatusChar->notify();
+}
 
-    sprintf(buffer, "%.1f", _sensorReadings->humSerra1);
-    _hum1SerraChar->setValue(buffer); _hum1SerraChar->notify();
+void BLEManager::ServerCallbacks::onConnect(NimBLEServer* pServer) { 
+    _manager->_deviceConnected = true; 
+}
+void BLEManager::ServerCallbacks::onDisconnect(NimBLEServer* pServer) { 
+    _manager->_deviceConnected = false; 
+    NimBLEDevice::getAdvertising()->start(); 
+}
 
-    sprintf(buffer, "%.1f", _sensorReadings->humSerra2);
-    _hum2SerraChar->setValue(buffer); _hum2SerraChar->notify();
+void BLEManager::ActuatorCallbacks::onWrite(NimBLECharacteristic* p) {
+    std::string val = p->getValue();
+    if (val.length() == 0) return;
+    bool state = (val[0] == 1);
+    std::string uuid = p->getUUID().toString();
 
-
-
-    sprintf(buffer, "%.1f", _sensorReadings->soilAverage);
-    _soilChar->setValue(buffer); _soilChar->notify();
-
-    sprintf(buffer, "%.1f", _sensorReadings->soil1);
-    _soil1Char->setValue(buffer); _soil1Char->notify();
-
-    sprintf(buffer, "%.1f", _sensorReadings->soil2);
-    _soil2Char->setValue(buffer); _soil2Char->notify();
-
-
-    sprintf(buffer, "%i", _sensorReadings->currentHour);
-    _rtcHourChar->setValue(buffer); _rtcHourChar->notify();
-
-    sprintf(buffer, "%i", _sensorReadings->currentMinute);
-    _rtcMinuteChar->setValue(buffer); _rtcMinuteChar->notify();
-
-    // Sincronizza Stati
-    uint8_t val;
-    val = _actuatorStates->isAutoModeActive; _autoChar->setValue(&val, 1); _autoChar->notify();
-    val = _actuatorStates->isCallModeActive; _callModeChar->setValue(&val, 1); _callModeChar->notify();
-    val = _actuatorStates->areCurtainsOpen;  _curtainChar->setValue(&val, 1); _curtainChar->notify();
-    val = _actuatorStates->isHeaterOn;       _heaterChar->setValue(&val, 1); _heaterChar->notify();
-    val = (_actuatorStates->fanMode != FAN_OFF); _fanChar->setValue(&val, 1); _fanChar->notify();
-    val = _actuatorStates->isPumpOn;         _waterChar->setValue(&val, 1); _waterChar->notify();
-    val = _actuatorStates->isExtractorOn;         _extractorChar->setValue(&val, 1); _extractorChar->notify();
+    if (uuid == CHAR_AUTO_UUID) _actuatorStates->isAutoModeActive = state;
+    else if (uuid == CHAR_PUMP_UUID) _actuatorStates->isPumpOn = state;
+    else if (uuid == CHAR_HEATER_UUID) _actuatorStates->isHeaterDeskOn = state;
+    else if (uuid == CHAR_EXTRACTOR_UUID) _actuatorStates->isExtractorOn = state;
+    else if (uuid == CHAR_CURTAIN_UUID) _actuatorStates->areCurtainsOpen = state;
+    else if (uuid == CHAR_GROW_LIGHTS_UUID) _actuatorStates->isGrowLightOn = state;
 }

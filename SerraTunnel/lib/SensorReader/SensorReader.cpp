@@ -5,10 +5,20 @@ SensorReader::SensorReader(SensorReadings_t* sensors, ActuatorStates_t* actuator
 
 // Funzione di utilità per il multiplexer TCA9548A
 void SensorReader::tcaSelectChannel(uint8_t i) {
-    if (i > 7) return; 
+    if (i > 3) return; 
     Wire.beginTransmission(TCA9548A_ADDR);
     Wire.write(1 << i);
     Wire.endTransmission();  
+}
+
+void SensorReader::aggiornaRTCconWiFi() {
+    configTime(3600, 3600, "pool.ntp.org"); // GMT+1 e Ora Legale per Italia
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo)) {
+        _rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, 
+                            timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
+        Serial.println("\n[OK] RTC sincronizzato con internet.");
+    }
 }
 
 void SensorReader::initSensors() {
@@ -54,6 +64,10 @@ void SensorReader::initSensors() {
     DateTime now = _rtc.now();
     Serial.printf("Ora attuale: %02d:%02d:%02d\n", now.hour(), now.minute(), now.second());
     
+    // Inizializzazione Min/Max con valori sentinella
+    _sensorReadings->tempMin = 100.0;
+    _sensorReadings->tempMax = -100.0;
+
     // --- 2. Init BME280 (Canali 0, 1, 2) ---
     // Inizializzazione BME Ufficio (Canale 0)
     tcaSelectChannel(BME_CHANNEL_OFFICE); 
@@ -69,26 +83,21 @@ void SensorReader::initSensors() {
     tcaSelectChannel(BME_CHANNEL_OFFICE);
 }
 
-// Funzione calcolo media BME
-float SensorReader::calculateAverageBME(float val1, float val2, float val3) {
-    float average  = (val1 + val2 + val3) / 3.0F;
-    return average;
-}
-
-// Funzione calcolo media sonde
-float SensorReader::calculateAverageSoil(float val1, float val2) {
-    float average  = (val1 + val2) / 2.0F;
-    return average;
-}
-
 // Funzione di lettura dell'orologio
 void SensorReader::readRTC() {
     // Lettura RTC (Canale 3)
     tcaSelectChannel(RTC_CHANNEL);
     DateTime now = _rtc.now();
+
     _sensorReadings->currentDay = now.day();
+    _sensorReadings->currentMonth = now.month();
+    _sensorReadings->currentYear = now.year();
     _sensorReadings->currentHour = now.hour();
     _sensorReadings->currentMinute = now.minute();
+    
+    float rawBat = analogRead(PIN_BAT);
+    _sensorReadings->batteryPercent = map(rawBat, 1800, 2500, 0, 100); // Esempio mappatura approssimativa
+    _sensorReadings->batteryPercent = constrain(_sensorReadings->batteryPercent, 0, 100);
     
     // Verifica se è scattata la mezzanotte per il reset della logica
     static int lastDay = -1;
@@ -103,35 +112,56 @@ void SensorReader::readRTC() {
 // Funzione di lettura dei sensori temperatura
 void SensorReader::readBME() {
     // Lettura Sensore Ufficio (BME280)
-    tcaSelectChannel(BME_CHANNEL_OFFICE); 
-    float tempOffice = _bmeOffice.readTemperature();
-    float humOffice = _bmeOffice.readHumidity();
-    _sensorReadings->tempOffice = tempOffice; _sensorReadings->humOffice = humOffice;
+    float tempSum = 0, humSum = 0;
+    int activeSensors = 0;
+
+    // Lettura Nord
+    tcaSelectChannel(BME_CHANNEL_OFFICE);
+    float tN = _bmeOffice.readTemperature();
+    if (!isnan(tN) && tN > -40.0 && tN < 85.0) {
+        _sensorReadings->bmeNordOk = true;
+        _sensorReadings->tempOffice = tN;
+        _sensorReadings->humOffice = _bmeOffice.readHumidity();
+        tempSum += tN; humSum += _sensorReadings->humOffice; activeSensors++;
+    } else { _sensorReadings->bmeNordOk = false; }
    
-    // Lettura Sensore Serra 1
-    tcaSelectChannel(BME_CHANNEL_SERRA_1); 
-    float temp1 = _bmeSerra1.readTemperature();
-    float hum1 = _bmeSerra1.readHumidity();
-    _sensorReadings->tempSerra1 = temp1; _sensorReadings->humSerra1 = hum1;
+    // Lettura Centro
+    tcaSelectChannel(BME_CHANNEL_SERRA_1);
+    float tC = _bmeSerra1.readTemperature();
+    if (!isnan(tC) && tC > -40.0 && tC < 85.0) {
+        _sensorReadings->bmeCentroOk = true;
+        _sensorReadings->tempSerraCentro = tC;
+        _sensorReadings->humSerraCentro = _bmeSerra1.readHumidity();
+        tempSum += tC; humSum += _sensorReadings->humSerraCentro; activeSensors++;
+    } else { _sensorReadings->bmeCentroOk = false; }
 
-    // Lettura Sensore Serra 2
-    tcaSelectChannel(BME_CHANNEL_SERRA_2); 
-    float temp2 = _bmeSerra2.readTemperature();
-    float hum2 = _bmeSerra2.readHumidity();
-    _sensorReadings->tempSerra2 = temp2; _sensorReadings->humSerra2 = hum2;
+    // Lettura Sud
+    tcaSelectChannel(BME_CHANNEL_SERRA_2);
+    float tS = _bmeSerra2.readTemperature();
+    if (!isnan(tS) && tS > -40.0 && tS < 85.0) {
+        _sensorReadings->bmeSudOk = true;
+        _sensorReadings->tempSerraSud = tS;
+        _sensorReadings->humSerraSud = _bmeSerra2.readHumidity();
+        tempSum += tS; humSum += _sensorReadings->humSerraSud; activeSensors++;
+    } else { _sensorReadings->bmeSudOk = false; }
 
-    // Calcolo Media Serra
-    _sensorReadings->tempSerraAverage = calculateAverageBME(tempOffice,temp1, temp2);
-    _sensorReadings->humSerraAverage = calculateAverageBME(humOffice,hum1, hum2);
-}
+    if (activeSensors > 0) {
+        _sensorReadings->tempSerraAverage = tempSum / (float)activeSensors;
+        _sensorReadings->humSerraAverage = humSum / (float)activeSensors;
 
-// Funzione di lettura dei sensori del terreno
-void SensorReader::readSoilSensor() {
-    // Lettura Sensori Analogici (Terreno)
-    _sensorReadings->soil1 = (float)analogRead(PIN_SOIL_1);
-    _sensorReadings->soil2 = (float)analogRead(PIN_SOIL_2);
-    // Esempio semplice: 4095 = secco, 0 = bagnato (invertire e normalizzare)
-    _sensorReadings->soilAverage = calculateAverageSoil(_sensorReadings->soil1, _sensorReadings->soil2);
+        // ACQUISIZIONE LOGICA MIN/MAX
+        // Se è la prima lettura dopo il boot (valori sentinella)
+        if (_sensorReadings->tempMin > 90.0) _sensorReadings->tempMin = _sensorReadings->tempSerraAverage;
+        if (_sensorReadings->tempMax < -90.0) _sensorReadings->tempMax = _sensorReadings->tempSerraAverage;
+
+        // Confronto continuo
+        if (_sensorReadings->tempSerraAverage < _sensorReadings->tempMin) {
+            _sensorReadings->tempMin = _sensorReadings->tempSerraAverage;
+        }
+        if (_sensorReadings->tempSerraAverage > _sensorReadings->tempMax) {
+            _sensorReadings->tempMax = _sensorReadings->tempSerraAverage;
+        }
+    }
 }
 
 // Funzione di lettura della luce solare
@@ -142,8 +172,7 @@ void SensorReader::readLDR() {
 
 // Funzioni di lettura dei sensori (Digitali)
 void SensorReader::readDigitalSensors() {
-    // Rilevamento Pioggia/Livello 
-    _sensorReadings->isRaining = digitalRead(PIN_RAIN_SENSOR);
+    // Rilevamento Pioggia
     // Assumiamo che il sensore di livello tank sia LOW se vuoto
     _sensorReadings->tankLow = !digitalRead(PIN_RAIN_SENSOR); 
 }
@@ -157,18 +186,7 @@ void SensorReader::readOfficeSensors() {
 void SensorReader::readAllSensors() {
     readRTC();
     readBME();
-    readSoilSensor();
     readLDR();
     readDigitalSensors();
     readOfficeSensors();
-}
-
-void SensorReader::aggiornaRTCconWiFi() {
-    configTime(3600, 3600, "pool.ntp.org"); // GMT+1 e Ora Legale per Italia
-    struct tm timeinfo;
-    if (getLocalTime(&timeinfo)) {
-        _rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, 
-                            timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
-        Serial.println("\n[OK] RTC sincronizzato con internet.");
-    }
 }

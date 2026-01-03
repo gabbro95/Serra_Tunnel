@@ -32,14 +32,10 @@ private:
     const char* ntpServer = "pool.ntp.org";
     const long  gmtOffset_sec = 3600;      // Italia è GMT+1
     const int   daylightOffset_sec = 3600; // Ora legale (+1 ora extra d'estate)
-      
-    float calculateAverageBME(float val1, float val2, float val3);
-    float calculateAverageSoil(float val1, float val2);
 
     void readOfficeSensors();
     void readRTC();
     void readBME();
-    void readSoilSensor();
     void readLDR();
     void readDigitalSensors();
 

@@ -19,8 +19,10 @@ LogicController* logicController;
 BLEManager* bleManager;
 
 // Timers
-Timer lastSensorReadTime(sensorReadInterval); const long sensorReadInterval = 5000; 
-Timer lastBleNotifyTime(bleNotifyInterval); const long bleNotifyInterval = 2000; 
+const long sensorReadInterval = 5000; 
+const long bleNotifyInterval = 2000; 
+Timer lastSensorReadTime(sensorReadInterval); 
+Timer lastBleNotifyTime(bleNotifyInterval); 
 
 
 void setup() {
@@ -48,9 +50,6 @@ void setup() {
 void loop() {
     if (lastSensorReadTime.update()) {
         sensorReader->readAllSensors();
-        
-        Serial.printf("DEBUG: Office: %.1f°C | Serra Avg: %.1f°C | Soil: %.1f%%\n", 
-            sensorData.tempOffice, sensorData.tempSerraAverage, sensorData.soilAverage);
     }
 
     logicController->runLogicCycle();
