@@ -83,7 +83,7 @@ Per dettagli su installazione, configurazione e utilizzo consulta:
 📄 Smart_GreenOffice_Manuale.pdf
 
 🖼️ Screenshot
-(Spazio per screenshot della dashboard e foto della serra / ufficio)
+
 
 🤝 Contributi
 Contributi e segnalazioni sono benvenuti: apri una issue o una pull request.
